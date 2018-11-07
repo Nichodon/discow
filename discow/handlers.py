@@ -2,11 +2,12 @@
 # @Date:   06:50:24, 02-May-2018
 # @Filename: handlers.py
 # @Last modified by:   edl
-# @Last modified time: 20:16:00, 04-Nov-2018
+# @Last modified time: 00:06:09, 07-Nov-2018
 
 bot_data = {}
 discow_prefix = "cow "
 
+import re
 import os
 import pickle
 from random import randint
@@ -18,9 +19,10 @@ print("Begin Handler Initialization")
 
 message_handlers = {}
 private_message_handlers = {}
+regex_message_handlers = {}
 bot_message_handlers = {}
-special_emojis = {}
 map_messages = {}
+special_emojis = {}
 
 print("\tBegin Loading Files")
 closing = False
@@ -69,6 +71,9 @@ def add_message_handler(handler, keyword):
 def add_private_message_handler(handler, keyword):
     private_message_handlers[keyword] = handler
 
+def add_regex_message_handler(handler, keyword):
+    regex_message_handlers[keyword] = handler
+
 def add_bot_message_handler(handler, keyword):
     bot_message_handlers[keyword] = handler
 
@@ -87,11 +92,21 @@ import re
 import asyncio
 
 async def on_message(Bot, msg):
+    if msg.role_mentions or msg.mention_everyone:
+        for m in msg.server.members:
+            if not m.bot and m.mentioned_in(msg):
+                datautils.nested_set(msg, 'user_data', m.id, 'last_mention')
+    else:
+        for m in msg.mentions:
+            if not m.bot:
+                datautils.nested_set(msg, 'user_data', m.id, 'last_mention')
     if not msg.author.bot:
         if not msg.content.startswith(discow_prefix):
-            if msg.content.startswith("echo:") and msg.content.strip() != 'echo:':
-                await Bot.send_message(msg.channel, msg.content.split(':', 1)[1])
-                return
+            for a in regex_message_handlers:
+                reg = re.compile(a, re.I).match(msg.content)
+                if reg:
+                    await regex_message_handlers[a](Bot, msg, reg)
+                    break
             if Bot.user in msg.mentions:
                 await Bot.send_message(msg.channel, "Type `cow help` if you need help.")
             return
@@ -123,18 +138,18 @@ async def on_message(Bot, msg):
         except IndexError:
             em = discord.Embed(title="Missing Inputs", description="Not enough inputs provided for **%s**." % strutils.parse_command(msg.content)[0], colour=0xd32323)
             await msgutils.send_embed(Bot, msg, em)
-        # except (TypeError, ValueError):
-        #     em = discord.Embed(title="Invalid Inputs", description="Invalid inputs provided for **%s**." % strutils.parse_command(msg.content)[0], colour=0xd32323)
-        #     await msgutils.send_embed(Bot, msg, em)
-        # except discord.Forbidden:
-        #     em = discord.Embed(title="Missing Permissions", description="Discow is missing permissions to perform this task.", colour=0xd32323)
-        #     try:
-        #         await msgutils.send_embed(Bot, msg, em)
-        #     except discord.Forbidden:
-        #         pass
-        # except Exception as e:
-        #     em = discord.Embed(title="Unknown Error", description="An unknown error occurred in command **%s**. Trace:\n%s" % (strutils.parse_command(msg.content)[0], e), colour=0xd32323)
-        #     await msgutils.send_embed(Bot, msg, em)
+        except (TypeError, ValueError):
+            em = discord.Embed(title="Invalid Inputs", description="Invalid inputs provided for **%s**." % strutils.parse_command(msg.content)[0], colour=0xd32323)
+            await msgutils.send_embed(Bot, msg, em)
+        except discord.Forbidden:
+            em = discord.Embed(title="Missing Permissions", description="Discow is missing permissions to perform this task.", colour=0xd32323)
+            try:
+                await msgutils.send_embed(Bot, msg, em)
+            except discord.Forbidden:
+                pass
+        except Exception as e:
+            em = discord.Embed(title="Unknown Error", description="An unknown error occurred in command **%s**. Trace:\n%s" % (strutils.parse_command(msg.content)[0], e), colour=0xd32323)
+            await msgutils.send_embed(Bot, msg, em)
     else:
         if msg.author != Bot.user and msg.channel.id == "433441820102361110" and msg.embeds and 'title' in msg.embeds[0] and msg.embeds[0]["title"] in bot_message_handlers:
             try:
