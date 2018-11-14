@@ -2,7 +2,7 @@
 # @Date:   06:50:24, 02-May-2018
 # @Filename: handlers.py
 # @Last modified by:   edl
-# @Last modified time: 15:44:16, 07-Nov-2018
+# @Last modified time: 18:16:59, 11-Nov-2018
 
 bot_data = {}
 discow_prefix = "cow "
@@ -96,12 +96,16 @@ async def on_message(Bot, msg):
     if not msg.author.bot:
         if msg.role_mentions or msg.mention_everyone:
             for m in msg.server.members:
-                if not m.bot and m.mentioned_in(msg):
-                    datautils.nested_set(msg, 'user_data', m.id, 'last_mention')
+                if not m.bot and m.mentioned_in(msg) and (not datautils.nested_get('user_data', m.id, 'mentions')
+                                                          or msg not in datautils.nested_get('user_data', m.id, 'mentions')):
+                    datautils.nested_append(msg, 'user_data', m.id, 'mentions')
+                    bot_data['user_data'][m.id]['mentions'] = bot_data['user_data'][m.id]['mentions'][-10:]
         else:
             for m in msg.mentions:
-                if not m.bot:
-                    datautils.nested_set(msg, 'user_data', m.id, 'last_mention')
+                if not m.bot and (not datautils.nested_get('user_data', m.id, 'mentions')
+                                  or msg not in datautils.nested_get('user_data', m.id, 'mentions')):
+                    datautils.nested_append(msg, 'user_data', m.id, 'mentions')
+                    bot_data['user_data'][m.id]['mentions'] = bot_data['user_data'][m.id]['mentions'][-10:]
         if not msg.content.startswith(discow_prefix):
             for a in regex_message_handlers:
                 reg = re.compile(a, re.I).match(msg.content)
@@ -134,8 +138,6 @@ async def on_message(Bot, msg):
                 except KeyError:
                     if cmd in private_message_handlers:
                         await Bot.send_message(msg.channel, "The **"+cmd+"** command can only be used in private channels!")
-                if cmd != 'save' and randint(1,50)==1:
-                    await message_handlers["save"](Bot, msg, overrideperms=True)
         except IndexError:
             em = discord.Embed(title="Missing Inputs", description="Not enough inputs provided for **%s**." % strutils.parse_command(msg.content)[0], colour=0xd32323)
             await msgutils.send_embed(Bot, msg, em)
@@ -164,3 +166,7 @@ async def timed_msg(Bot):
             datautils.nested_set(date.today(), 'global_data', 'interest')
             await economy.interest()
         await asyncio.sleep(3600)
+async def timed_save(Bot):
+    while True:
+        await message_handlers["save"](Bot, None, overrideperms=True)
+        await asyncio.sleep(60)

@@ -2,15 +2,16 @@
 # @Date:   10:01:53, 03-Nov-2018
 # @Filename: msgutils.py
 # @Last modified by:   edl
-# @Last modified time: 15:36:12, 07-Nov-2018
+# @Last modified time: 09:39:46, 11-Nov-2018
 
 import asyncio
 import datetime
 from pytz import timezone
 import pytz
 from discord import ServerRegion, Forbidden
+from utils import strutils
 
-def convertTime(time, msg):
+def getTimezone(msg):
     if msg.channel.is_private:
         zone = timezone("Europe/London")
     else:
@@ -32,10 +33,16 @@ def convertTime(time, msg):
         'russia':'Europe/Russia'
         }
         zone = timezone(timezones[msg.server.region])
+    return zone
+
+def convertTime(time, format='%Y-%m-%d at %H:%M:%S %Z', zone=timezone("Europe/London")):
     time_naive = time.replace(tzinfo=pytz.utc)
     loctime = time_naive.astimezone(zone)
-    fmt = '%Y-%m-%d at %H:%M:%S %Z'
+    fmt = format
     return loctime.strftime(fmt)
+
+def msg_loctime(time, msg, format='%Y-%m-%d at %H:%M:%S %Z'):
+    return convertTime(time, format=format, zone=getTimezone(msg))
 
 def nickname(usr, srv):
     if not srv:
@@ -48,7 +55,7 @@ def nickname(usr, srv):
 async def send_embed(Bot, msg, embed, time=datetime.datetime.utcnow(), usr=None):
     if not usr:
         usr = Bot.user
-    txt = "Created by "+nickname(usr, msg.server)+" on "+convertTime(time, msg)+"."
+    txt = "Created by "+nickname(usr, msg.server)+" on "+msg_loctime(time, msg)+"."
     embed.set_footer(text=txt, icon_url=(usr.avatar_url if usr.avatar_url else usr.default_avatar_url))
     try:
         m = await Bot.send_message(msg.channel, embed=embed)
@@ -62,16 +69,12 @@ async def send_embed(Bot, msg, embed, time=datetime.datetime.utcnow(), usr=None)
 async def edit_embed(Bot, msg, embed, time=datetime.datetime.utcnow(), usr=None):
     if not usr:
         usr = Bot.user
-    txt = "Edited by "+nickname(usr, msg.server)+" on "+convertTime(time, msg)+"."
+    txt = "Edited by "+nickname(usr, msg.server)+" on "+msg_loctime(time, msg)+"."
     embed.set_footer(text=txt, icon_url=(usr.avatar_url if usr.avatar_url else usr.default_avatar_url))
     m = await Bot.edit_message(msg, embed=embed)
     return m
 
 async def send_large_message(Bot, channel, content, prefix='', suffix=''):
-    cchunk = ""
-    for l in content.splitlines():
-        if len(cchunk)+len(l)> 2000-len(prefix)-len(suffix):
-            await Bot.send_message(channel, prefix+cchunk+suffix)
-            cchunk = ""
-        cchunk+=l+"\n"
-    await Bot.send_message(channel, prefix+cchunk+suffix)
+    clist = strutils.split_str_chunks(content, 2000, prefix=prefix, suffix=suffix)
+    for l in clist:
+        await Bot.send_message(channel, l)

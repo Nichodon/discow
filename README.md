@@ -10,6 +10,7 @@ Add this bot to your server [here](https://discordapp.com/api/oauth2/authorize?c
   * Moderation!
   * Gambling!
   * And more!
+  * Ping logging!
 
 ## Commands
 Prefix: `cow`
@@ -76,3 +77,9 @@ Remember to delete `{}` and `()`.
 |buy|`cow stock buy {name}`|Buy virtual stocks|`buy`, `invest`|
 |sell|`cow stock sell {name}`|Sell virtual stocks.|`sell`|
 |get|`cow stock get {name}`|View realtime stock information from the nasdaq website.|`get`, `info`|
+
+### Ping Logging
+| **Name** | **Usage** | **Description** | **Aliases** |
+|:-:|:-:|:-:|:-:|
+|who ping|`who ping`|Check pings|None|
+|clear ping|`clear ping`|Clear saved pings|None|
